@@ -30,4 +30,7 @@ public class Dre {
     private BigDecimal depreciacao;           // Depreciação
     private BigDecimal impostos;              // Percentual de Impostos (15.5%)
     private BigDecimal lucroLiquido;          // Lucro Líquido
+
+      // Novo campo para a taxa de imposto
+    private BigDecimal taxaImposto;  // Exemplo: 0.155 para 15,5%
 }

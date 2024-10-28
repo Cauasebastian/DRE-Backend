@@ -29,11 +29,15 @@ public class DreService {
         return dreRepository.findById(id).orElse(null);
     }
 
+    public void deletarDre(Long id) {
+        dreRepository.deleteById(id);
+    }
+
     /**
      * Calcula os valores da DRE (Demonstração do Resultado do Exercício)
      * @param dre DRE a ser calculada
      */
-    private void calcularDre(Dre dre) {
+     private void calcularDre(Dre dre) {
         BigDecimal receitaBrutaTotal = calcularReceitaBrutaTotal(dre.getReceitas());
         BigDecimal despesasOperacionais = calcularDespesasOperacionais(dre.getDespesas());
         BigDecimal cmv = calcularCmv(dre.getDespesas());
@@ -45,34 +49,41 @@ public class DreService {
         dre.setReceitaLiquida(receitaBrutaTotal.subtract(cmv).subtract(comissoes));
         dre.setDespesasOperacionais(despesasOperacionais);
         dre.setEbitda(dre.getReceitaLiquida().subtract(despesasOperacionais));
-        dre.setImpostos(calcularImpostos(dre.getEbitda()));
+
+        // Novo cálculo de impostos com a taxa de imposto definida pelo usuário
+        dre.setImpostos(calcularImpostos(dre.getEbitda(), dre.getTaxaImposto()));
+
         dre.setLucroLiquido(dre.getEbitda().subtract(dre.getImpostos()));
     }
+    
 
     /**
-     * Calcula a Receita Bruta Total
+     * Calcula a Receita Bruta Total a partir das receitas.
      * @param receitas Lista de Receitas
      * @return Receita Bruta Total
      */
     private BigDecimal calcularReceitaBrutaTotal(List<Receita> receitas) {
         return receitas.stream()
                 .map(Receita::getReceitaBrutaTotal)
+                .filter(total -> total != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula as Despesas Operacionais
+     * Calcula as Despesas Operacionais excluindo CMV e comissões.
      * @param despesas Lista de Despesas
      * @return Despesas Operacionais
      */
     private BigDecimal calcularDespesasOperacionais(List<Despesa> despesas) {
         return despesas.stream()
+                .filter(despesa -> despesa.getCmv() == null && despesa.getComissoes() == null)
                 .map(Despesa::getValor)
+                .filter(valor -> valor != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula o Custo das Mercadorias Vendidas
+     * Calcula o Custo das Mercadorias Vendidas (CMV) somando apenas as despesas classificadas como CMV.
      * @param despesas Lista de Despesas
      * @return Custo das Mercadorias Vendidas
      */
@@ -84,26 +95,23 @@ public class DreService {
     }
 
     /**
-     * Calcula as Comissões
-     * @param receitas Lista de Receitas
+     * Calcula as Comissões com base nas despesas classificadas como comissões.
+     * @param despesas Lista de Despesas
      * @return Comissões
      */
-    private BigDecimal calcularComissoes(List<Receita> receitas) {
-        return receitas.stream()
-                .map(receita -> receita.getTicketMedio().multiply(BigDecimal.valueOf(0.05))) // Exemplo de comissão de 5%
+    private BigDecimal calcularComissoes(List<Despesa> despesas) {
+        return despesas.stream()
+                .map(Despesa::getComissoes)
+                .filter(comissoes -> comissoes != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula os Impostos
+     * Calcula os Impostos aplicando uma taxa fixa de 15.5% sobre o EBITDA.
      * @param ebitda EBITDA
      * @return Impostos
      */
     private BigDecimal calcularImpostos(BigDecimal ebitda) {
         return ebitda.multiply(BigDecimal.valueOf(0.155)); // Exemplo: 15.5% de imposto
-    }
-
-    public void deletarDre(Long id) {
-        dreRepository.deleteById(id);
     }
 }
