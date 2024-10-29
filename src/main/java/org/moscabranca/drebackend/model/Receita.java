@@ -24,4 +24,8 @@ public class Receita {
     private Integer consultorias;              // Quantidade de Consultorias
     private BigDecimal ticketMedioConsultorias;// Ticket Médio das Consultorias
     private BigDecimal receitaBrutaTotal;      // Receita Bruta Total
+    //comissao
+    private BigDecimal comissoes;              // Comissões (ex: 5%)
+
+
 }

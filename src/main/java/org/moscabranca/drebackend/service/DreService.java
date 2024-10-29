@@ -37,7 +37,7 @@ public class DreService {
      * Calcula os valores da DRE (Demonstração do Resultado do Exercício)
      * @param dre DRE a ser calculada
      */
-     private void calcularDre(Dre dre) {
+    private void calcularDre(Dre dre) {
         BigDecimal receitaBrutaTotal = calcularReceitaBrutaTotal(dre.getReceitas());
         BigDecimal despesasOperacionais = calcularDespesasOperacionais(dre.getDespesas());
         BigDecimal cmv = calcularCmv(dre.getDespesas());
@@ -55,7 +55,6 @@ public class DreService {
 
         dre.setLucroLiquido(dre.getEbitda().subtract(dre.getImpostos()));
     }
-    
 
     /**
      * Calcula a Receita Bruta Total a partir das receitas.
@@ -95,13 +94,13 @@ public class DreService {
     }
 
     /**
-     * Calcula as Comissões com base nas despesas classificadas como comissões.
-     * @param despesas Lista de Despesas
+     * Calcula as Comissões com base nas receitas classificadas como comissões.
+     * @param receitas Lista de Receitas
      * @return Comissões
      */
-    private BigDecimal calcularComissoes(List<Despesa> despesas) {
-        return despesas.stream()
-                .map(Despesa::getComissoes)
+    private BigDecimal calcularComissoes(List<Receita> receitas) {
+        return receitas.stream()
+                .map(Receita::getComissoes)
                 .filter(comissoes -> comissoes != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
@@ -109,9 +108,10 @@ public class DreService {
     /**
      * Calcula os Impostos aplicando uma taxa fixa de 15.5% sobre o EBITDA.
      * @param ebitda EBITDA
+     * @param taxaImposto Taxa de Imposto
      * @return Impostos
      */
-    private BigDecimal calcularImpostos(BigDecimal ebitda) {
-        return ebitda.multiply(BigDecimal.valueOf(0.155)); // Exemplo: 15.5% de imposto
+    private BigDecimal calcularImpostos(BigDecimal ebitda, BigDecimal taxaImposto) {
+        return ebitda.multiply(taxaImposto);
     }
 }

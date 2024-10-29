@@ -1,18 +1,20 @@
 version: '3.8'
 
 services:
-  db:
-    image: mysql:latest
-    container_name: mysql_container
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: password # Substitua "root_password" pela senha que deseja
-      MYSQL_DATABASE: dredatabase       # Substitua "my_database" pelo nome do banco que deseja criar
-      MYSQL_USER: root                   # Nome de usuário do banco
-      MYSQL_PASSWORD: password           # Senha do usuário do banco
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: dredatabase
     ports:
-      - "3306:3306"                      # Porta exposta no host para acessar o MySQL
+      - "3306:3306"
     volumes:
-      - db_data:/var/lib/mysql           # Volume para persistir os dados do banco de dados
-
-volumes:
-  db_data:
+      - ./mysql:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
