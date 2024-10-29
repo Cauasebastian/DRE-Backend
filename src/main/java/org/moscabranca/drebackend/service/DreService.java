@@ -3,7 +3,7 @@ package org.moscabranca.drebackend.service;
 import org.moscabranca.drebackend.model.Dre;
 import org.moscabranca.drebackend.model.Receita;
 import org.moscabranca.drebackend.model.Despesa;
-import org.moscabranca.drebackend.repository.DreRepository;
+import org.moscabranca.drebackend.model.repository.DreRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -50,8 +50,9 @@ public class DreService {
         dre.setDespesasOperacionais(despesasOperacionais);
         dre.setEbitda(dre.getReceitaLiquida().subtract(despesasOperacionais));
 
-        // Novo cálculo de impostos com a taxa de imposto definida pelo usuário
-        dre.setImpostos(calcularImpostos(dre.getEbitda(), dre.getTaxaImposto()));
+        // Taxa de imposto adaptável para empresas de diferentes setores
+        BigDecimal taxaImposto = dre.getTaxaImposto() != null ? dre.getTaxaImposto() : BigDecimal.valueOf(0.155);
+        dre.setImpostos(calcularImpostos(dre.getEbitda(), taxaImposto));
 
         dre.setLucroLiquido(dre.getEbitda().subtract(dre.getImpostos()));
     }

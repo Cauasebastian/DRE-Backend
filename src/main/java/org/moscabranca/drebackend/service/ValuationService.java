@@ -9,8 +9,11 @@ import java.math.RoundingMode;
 
 @Service
 public class ValuationService {
-
-    // Método que calcula o valuation baseado em dados da DRE
+    /**
+     * Calcula o valuation de uma empresa
+     * @param request
+     * @return
+     */
     public ValuationResponse calcularValuation(DreRequest request) {
         BigDecimal fluxoCaixaPresente = BigDecimal.ZERO;
         BigDecimal taxaDesconto = request.getTaxaDesconto();
@@ -19,8 +22,7 @@ public class ValuationService {
         for (int i = 1; i <= anosProjecao; i++) {
             BigDecimal fluxoAno = calcularFluxoCaixaAno(request, i);
             BigDecimal valorPresente = fluxoAno.divide(
-                    BigDecimal.ONE.add(taxaDesconto).pow(i), 2, RoundingMode.HALF_UP
-            );
+                    BigDecimal.ONE.add(taxaDesconto).pow(i), 2, RoundingMode.HALF_UP);
             fluxoCaixaPresente = fluxoCaixaPresente.add(valorPresente);
         }
 
@@ -30,15 +32,30 @@ public class ValuationService {
         return new ValuationResponse(fluxoCaixaPresente, valorTerminal, valuationTotal);
     }
 
-    // Simulação do cálculo do fluxo de caixa anual
+    /**
+     * Calcula o fluxo de caixa para um determinado ano
+     * @param request
+     * @param ano
+     * @return
+     */
     private BigDecimal calcularFluxoCaixaAno(DreRequest request, int ano) {
-        // Para este exemplo, consideramos apenas a receita líquida menos despesas operacionais
-        return request.getReceitaLiquida().subtract(request.getDespesasOperacionais());
-    }
+        BigDecimal receitaLiquida = request.getReceitaLiquida();
+        BigDecimal despesasOperacionais = request.getDespesasOperacionais();
+        BigDecimal taxaCrescimentoReceita = BigDecimal.valueOf(0.05); // exemplo de taxa de crescimento
 
-    // Cálculo do valor terminal usando o modelo de perpetuidade (Gordon Growth Model)
+        BigDecimal fluxoAno = receitaLiquida.subtract(despesasOperacionais)
+                .multiply(BigDecimal.ONE.add(taxaCrescimentoReceita).pow(ano));
+
+        return fluxoAno;
+    }
+    /**
+     * Calcula o valor terminal do valuation
+     * @param request
+     * @param taxaDesconto
+     * @return
+     */
     private BigDecimal calcularValorTerminal(DreRequest request, BigDecimal taxaDesconto) {
-        BigDecimal taxaCrescimento = BigDecimal.valueOf(0.03); // Taxa de crescimento estimada em 3%
+        BigDecimal taxaCrescimento = BigDecimal.valueOf(0.03); // Ajustável conforme o setor
         BigDecimal fluxoUltimoAno = calcularFluxoCaixaAno(request, request.getAnosProjecao());
         return fluxoUltimoAno.multiply(BigDecimal.ONE.add(taxaCrescimento))
                 .divide(taxaDesconto.subtract(taxaCrescimento), RoundingMode.HALF_UP);
