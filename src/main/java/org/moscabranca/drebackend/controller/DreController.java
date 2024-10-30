@@ -9,8 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/dre")
 public class DreController {
@@ -21,32 +19,22 @@ public class DreController {
     @Autowired
     private ValuationService valuationService;
 
-    @PostMapping
-    public ResponseEntity<Dre> criarDre(@RequestBody Dre dre) {
-        Dre dreSalva = dreService.saveDre(dre);
-        return ResponseEntity.ok(dreSalva);
+    /**
+     * Endpoint para calcular a DRE com base nos dados fornecidos
+     * @param request Dados de entrada para o cálculo da DRE
+     * @return DRE calculada
+     */
+    @PostMapping("/calcular")
+    public ResponseEntity<Dre> calcularDre(@RequestBody DreRequest request) {
+        Dre dreCalculada = dreService.calcularDre(request);
+        return ResponseEntity.ok(dreCalculada);
     }
 
-    @GetMapping
-    public ResponseEntity<List<Dre>> listarDres() {
-        return ResponseEntity.ok(dreService.findAll());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<Dre> buscarDre(@PathVariable Long id) {
-        Dre dre = dreService.findById(id);
-        if (dre != null) {
-            return ResponseEntity.ok(dre);
-        }
-        return ResponseEntity.notFound().build();
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletarDre(@PathVariable Long id) {
-        dreService.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-
+    /**
+     * Endpoint para calcular o valuation com base nos dados fornecidos
+     * @param request Dados de entrada para o cálculo do valuation
+     * @return Valuation calculado
+     */
     @PostMapping("/valuation")
     public ResponseEntity<ValuationResponse> calcularValuation(@RequestBody DreRequest request) {
         ValuationResponse response = valuationService.calcularValuation(request);

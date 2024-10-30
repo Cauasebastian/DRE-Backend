@@ -1,124 +1,106 @@
 package org.moscabranca.drebackend.service;
 
+import org.moscabranca.drebackend.dto.DreRequest;
 import org.moscabranca.drebackend.model.Dre;
-import org.moscabranca.drebackend.model.Receita;
-import org.moscabranca.drebackend.model.Despesa;
-import org.moscabranca.drebackend.repository.DreRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.math.RoundingMode;
 
 @Service
 public class DreService {
 
-    @Autowired
-    private DreRepository dreRepository;
+    /**
+     * Calcula a DRE (Demonstração do Resultado do Exercício)
+     * @param request Dados de entrada para o cálculo da DRE
+     * @return Objeto Dre com os valores calculados
+     */
+    public Dre calcularDre(DreRequest request) {
+        // Converter DreRequest para Dre
+        Dre dre = new Dre();
+        dre.setReceitas(request.getReceitas());
+        dre.setDespesas(request.getDespesas());
+        dre.setCmv(request.getCmv());
+        dre.setDepreciacao(request.getDepreciacao());
+        dre.setTaxaImposto(request.getTaxaImposto());
 
-    public Dre salvarDre(Dre dre) {
-        calcularDre(dre);  // Executa o cálculo antes de salvar
-        return dreRepository.save(dre);
-    }
+        // Calcular os valores da DRE
+        calcularValoresDre(dre);
 
-    public List<Dre> listarTodos() {
-        return dreRepository.findAll();
-    }
-
-    public Dre buscarPorId(Long id) {
-        return dreRepository.findById(id).orElse(null);
-    }
-
-    public void deletarDre(Long id) {
-        dreRepository.deleteById(id);
+        return dre;
     }
 
     /**
-     * Calcula os valores da DRE (Demonstração do Resultado do Exercício)
-     * @param dre DRE a ser calculada
+     * Método principal que calcula todos os valores da DRE
+     * @param dre Objeto Dre a ser preenchido com os cálculos
      */
-    void calcularDre(Dre dre) {
-        BigDecimal receitaBrutaTotal = calcularReceitaBrutaTotal(dre.getReceitas());
-        BigDecimal despesasOperacionais = calcularDespesasOperacionais(dre.getDespesas());
-        BigDecimal cmv = dre.getCmv() != null ? dre.getCmv() : calcularCmv(dre.getDespesas());
-
-        BigDecimal comissoes = calcularComissoes(dre.getReceitas());
+    private void calcularValoresDre(Dre dre) {
+        BigDecimal receitaBrutaTotal = calcularReceitaBrutaTotal(dre);
+        BigDecimal cmv = dre.getCmv() != null ? dre.getCmv() : BigDecimal.ZERO;
+        BigDecimal comissoes = calcularComissoes(dre);
+        BigDecimal despesasOperacionais = calcularDespesasOperacionais(dre);
 
         dre.setReceitaBrutaTotal(receitaBrutaTotal);
         dre.setCmv(cmv);
         dre.setComissoes(comissoes);
 
-        // Receita líquida = Receita Bruta - CMV - Comissões
-        dre.setReceitaLiquida(receitaBrutaTotal.subtract(cmv).subtract(comissoes));
+        // Receita Líquida = Receita Bruta Total - CMV - Comissões
+        BigDecimal receitaLiquida = receitaBrutaTotal.subtract(cmv).subtract(comissoes);
+        dre.setReceitaLiquida(receitaLiquida);
+
         dre.setDespesasOperacionais(despesasOperacionais);
 
         // EBITDA = Receita Líquida - Despesas Operacionais
-        dre.setEbitda(dre.getReceitaLiquida().subtract(despesasOperacionais));
+        BigDecimal ebitda = receitaLiquida.subtract(despesasOperacionais);
+        dre.setEbitda(ebitda);
 
-        // Define taxa de imposto padrão se não estiver especificada
+        // Definir taxa de imposto padrão se não estiver especificada
         BigDecimal taxaImposto = dre.getTaxaImposto() != null ? dre.getTaxaImposto() : BigDecimal.valueOf(0.08);
         dre.setTaxaImposto(taxaImposto);
 
-        // Calcula os impostos com base no EBITDA e na taxa de imposto
-        dre.setImpostos(calcularImpostos(dre.getEbitda(), taxaImposto));
+        // Impostos = EBITDA * Taxa de Imposto
+        BigDecimal impostos = ebitda.multiply(taxaImposto).setScale(2, RoundingMode.HALF_UP);
+        dre.setImpostos(impostos);
+
+        // Depreciação
+        BigDecimal depreciacao = dre.getDepreciacao() != null ? dre.getDepreciacao() : BigDecimal.ZERO;
 
         // Lucro Líquido = EBITDA - Depreciação - Impostos
-        BigDecimal depreciacao = dre.getDepreciacao() != null ? dre.getDepreciacao() : BigDecimal.ZERO;
-        dre.setLucroLiquido(dre.getEbitda().subtract(depreciacao).subtract(dre.getImpostos()));
+        BigDecimal lucroLiquido = ebitda.subtract(depreciacao).subtract(impostos);
+        dre.setLucroLiquido(lucroLiquido);
     }
 
     /**
-     * Calcula a Receita Bruta Total a partir das receitas.
-     * @param receitas Lista de Receitas
+     * Calcula a Receita Bruta Total a partir das receitas
+     * @param dre Objeto Dre contendo a lista de receitas
      * @return Receita Bruta Total
      */
-    private BigDecimal calcularReceitaBrutaTotal(List<Receita> receitas) {
-        return receitas.stream()
+    private BigDecimal calcularReceitaBrutaTotal(Dre dre) {
+        return dre.getReceitas().stream()
                 .map(receita -> receita.getReceitaBrutaTotal() != null ? receita.getReceitaBrutaTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula as Despesas Operacionais excluindo CMV e comissões.
-     * @param despesas Lista de Despesas
-     * @return Despesas Operacionais
+     * Calcula o total de comissões a partir das receitas
+     * @param dre Objeto Dre contendo a lista de receitas
+     * @return Total de Comissões
      */
-    private BigDecimal calcularDespesasOperacionais(List<Despesa> despesas) {
-        return despesas.stream()
-                .filter(despesa -> despesa.getCmv() == null && despesa.getComissoes() == null)
-                .map(despesa -> despesa.getValor() != null ? despesa.getValor() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /**
-     * Calcula o Custo das Mercadorias Vendidas (CMV) somando apenas as despesas classificadas como CMV.
-     * @param despesas Lista de Despesas
-     * @return Custo das Mercadorias Vendidas
-     */
-    private BigDecimal calcularCmv(List<Despesa> despesas) {
-        return despesas.stream()
-                .map(despesa -> despesa.getCmv() != null ? despesa.getCmv() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    /**
-     * Calcula as Comissões com base nas receitas classificadas como comissões.
-     * @param receitas Lista de Receitas
-     * @return Comissões
-     */
-    private BigDecimal calcularComissoes(List<Receita> receitas) {
-        return receitas.stream()
+    private BigDecimal calcularComissoes(Dre dre) {
+        return dre.getReceitas().stream()
                 .map(receita -> receita.getComissoes() != null ? receita.getComissoes() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula os Impostos aplicando a taxa de imposto sobre o EBITDA.
-     * @param ebitda EBITDA
-     * @param taxaImposto Taxa de Imposto
-     * @return Impostos
+     * Calcula as Despesas Operacionais excluindo CMV e comissões
+     * @param dre Objeto Dre contendo a lista de despesas
+     * @return Despesas Operacionais
      */
-    private BigDecimal calcularImpostos(BigDecimal ebitda, BigDecimal taxaImposto) {
-        return ebitda.multiply(taxaImposto);
+    private BigDecimal calcularDespesasOperacionais(Dre dre) {
+        return dre.getDespesas().stream()
+                .filter(despesa -> despesa.getCmv() == null && despesa.getComissoes() == null)
+                .map(despesa -> despesa.getValor() != null ? despesa.getValor() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

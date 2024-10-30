@@ -6,28 +6,23 @@ import org.moscabranca.drebackend.model.Dre;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.math.RoundingMode;
 
 @Service
 public class ValuationService {
+
     @Autowired
     private DreService dreService;
+
     /**
      * Calcula o valuation de uma empresa
-     * @param request
-     * @return
+     * @param request Dados de entrada para o cálculo do valuation
+     * @return ValuationResponse com os valores calculados
      */
     public ValuationResponse calcularValuation(DreRequest request) {
-        // Converter DreRequest para Dre
-        Dre dre = new Dre();
-        dre.setReceitas(request.getReceitas());
-        dre.setDespesas(request.getDespesas());
-        dre.setCmv(request.getCmv());
-        dre.setDepreciacao(request.getDepreciacao());
-        dre.setTaxaImposto(request.getTaxaImposto());
-
         // Calcular DRE
-        dreService.calcularDre(dre);  // Torne o método calcularDre público ou refatore conforme necessário
+        Dre dre = dreService.calcularDre(request);
 
         // Usar os valores calculados
         BigDecimal receitaLiquida = dre.getReceitaLiquida();
@@ -44,32 +39,38 @@ public class ValuationService {
             fluxoCaixaPresente = fluxoCaixaPresente.add(valorPresente);
         }
 
-        BigDecimal valorTerminal = calcularValorTerminal(receitaLiquida, despesasOperacionais, taxaDesconto, anosProjecao);
-        BigDecimal valuationTotal = fluxoCaixaPresente.add(valorTerminal);
+        //calcular o valor terminal, é necessário descontando o valor presente antes de somá-lo ao valuation total.
+        BigDecimal valorTerminalNaoDescontado = calcularValorTerminal(receitaLiquida, despesasOperacionais, taxaDesconto, anosProjecao);
+        BigDecimal fatorDesconto = BigDecimal.ONE.add(taxaDesconto).pow(anosProjecao, new MathContext(10, RoundingMode.HALF_UP));
+        BigDecimal valorTerminalDescontado = valorTerminalNaoDescontado.divide(fatorDesconto, 2, RoundingMode.HALF_UP);
+        BigDecimal valuationTotal = fluxoCaixaPresente.add(valorTerminalDescontado);
 
-        return new ValuationResponse(fluxoCaixaPresente, valorTerminal, valuationTotal);
+        return new ValuationResponse(fluxoCaixaPresente, valorTerminalDescontado, valuationTotal);
     }
-
 
     /**
      * Calcula o fluxo de caixa para um determinado ano
-     * @param
+     * @param receitaLiquida
+     * @param despesasOperacionais
      * @param ano
-     * @return
+     * @return Fluxo de caixa para o ano especificado
      */
     private BigDecimal calcularFluxoCaixaAno(BigDecimal receitaLiquida, BigDecimal despesasOperacionais, int ano) {
-        BigDecimal taxaCrescimentoReceita = BigDecimal.valueOf(0.05); // exemplo de taxa de crescimento
+        BigDecimal taxaCrescimentoReceita = BigDecimal.valueOf(0.05); // Exemplo de taxa de crescimento
 
         BigDecimal fluxoAno = receitaLiquida.subtract(despesasOperacionais)
                 .multiply(BigDecimal.ONE.add(taxaCrescimentoReceita).pow(ano));
 
         return fluxoAno;
     }
+
     /**
      * Calcula o valor terminal do valuation
      * @param receitaLiquida
+     * @param despesasOperacionais
      * @param taxaDesconto
-     * @return
+     * @param anosProjecao
+     * @return Valor terminal do valuation
      */
     private BigDecimal calcularValorTerminal(BigDecimal receitaLiquida, BigDecimal despesasOperacionais, BigDecimal taxaDesconto, int anosProjecao) {
         BigDecimal taxaCrescimento = BigDecimal.valueOf(0.03); // Ajustável conforme o setor
