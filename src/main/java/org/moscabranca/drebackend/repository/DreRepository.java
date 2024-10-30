@@ -1,4 +1,4 @@
-package org.moscabranca.drebackend.model.repository;
+package org.moscabranca.drebackend.repository;
 
 import org.moscabranca.drebackend.model.Dre;
 import org.springframework.data.jpa.repository.JpaRepository;

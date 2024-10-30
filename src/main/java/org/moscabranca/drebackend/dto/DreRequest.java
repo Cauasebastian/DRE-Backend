@@ -22,4 +22,5 @@ public class DreRequest {
     private BigDecimal taxaDesconto; // Taxa de desconto para valuation
     private int anosProjecao;        // Número de anos para projetar o fluxo de caixa
 
+    private BigDecimal taxaImposto;  // Exemplo: 0.155 para 15,5%
 }

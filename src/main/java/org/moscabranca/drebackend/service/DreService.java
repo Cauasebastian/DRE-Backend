@@ -3,7 +3,7 @@ package org.moscabranca.drebackend.service;
 import org.moscabranca.drebackend.model.Dre;
 import org.moscabranca.drebackend.model.Receita;
 import org.moscabranca.drebackend.model.Despesa;
-import org.moscabranca.drebackend.model.repository.DreRepository;
+import org.moscabranca.drebackend.repository.DreRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -37,24 +37,34 @@ public class DreService {
      * Calcula os valores da DRE (Demonstração do Resultado do Exercício)
      * @param dre DRE a ser calculada
      */
-    private void calcularDre(Dre dre) {
+    void calcularDre(Dre dre) {
         BigDecimal receitaBrutaTotal = calcularReceitaBrutaTotal(dre.getReceitas());
         BigDecimal despesasOperacionais = calcularDespesasOperacionais(dre.getDespesas());
-        BigDecimal cmv = calcularCmv(dre.getDespesas());
+        BigDecimal cmv = dre.getCmv() != null ? dre.getCmv() : calcularCmv(dre.getDespesas());
+
         BigDecimal comissoes = calcularComissoes(dre.getReceitas());
 
         dre.setReceitaBrutaTotal(receitaBrutaTotal);
         dre.setCmv(cmv);
         dre.setComissoes(comissoes);
+
+        // Receita líquida = Receita Bruta - CMV - Comissões
         dre.setReceitaLiquida(receitaBrutaTotal.subtract(cmv).subtract(comissoes));
         dre.setDespesasOperacionais(despesasOperacionais);
+
+        // EBITDA = Receita Líquida - Despesas Operacionais
         dre.setEbitda(dre.getReceitaLiquida().subtract(despesasOperacionais));
 
-        // Taxa de imposto adaptável para empresas de diferentes setores
-        BigDecimal taxaImposto = dre.getTaxaImposto() != null ? dre.getTaxaImposto() : BigDecimal.valueOf(0.155);
+        // Define taxa de imposto padrão se não estiver especificada
+        BigDecimal taxaImposto = dre.getTaxaImposto() != null ? dre.getTaxaImposto() : BigDecimal.valueOf(0.08);
+        dre.setTaxaImposto(taxaImposto);
+
+        // Calcula os impostos com base no EBITDA e na taxa de imposto
         dre.setImpostos(calcularImpostos(dre.getEbitda(), taxaImposto));
 
-        dre.setLucroLiquido(dre.getEbitda().subtract(dre.getImpostos()));
+        // Lucro Líquido = EBITDA - Depreciação - Impostos
+        BigDecimal depreciacao = dre.getDepreciacao() != null ? dre.getDepreciacao() : BigDecimal.ZERO;
+        dre.setLucroLiquido(dre.getEbitda().subtract(depreciacao).subtract(dre.getImpostos()));
     }
 
     /**
@@ -64,8 +74,7 @@ public class DreService {
      */
     private BigDecimal calcularReceitaBrutaTotal(List<Receita> receitas) {
         return receitas.stream()
-                .map(Receita::getReceitaBrutaTotal)
-                .filter(total -> total != null)
+                .map(receita -> receita.getReceitaBrutaTotal() != null ? receita.getReceitaBrutaTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -77,8 +86,7 @@ public class DreService {
     private BigDecimal calcularDespesasOperacionais(List<Despesa> despesas) {
         return despesas.stream()
                 .filter(despesa -> despesa.getCmv() == null && despesa.getComissoes() == null)
-                .map(Despesa::getValor)
-                .filter(valor -> valor != null)
+                .map(despesa -> despesa.getValor() != null ? despesa.getValor() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -89,8 +97,7 @@ public class DreService {
      */
     private BigDecimal calcularCmv(List<Despesa> despesas) {
         return despesas.stream()
-                .map(Despesa::getCmv)
-                .filter(cmv -> cmv != null)
+                .map(despesa -> despesa.getCmv() != null ? despesa.getCmv() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -101,13 +108,12 @@ public class DreService {
      */
     private BigDecimal calcularComissoes(List<Receita> receitas) {
         return receitas.stream()
-                .map(Receita::getComissoes)
-                .filter(comissoes -> comissoes != null)
+                .map(receita -> receita.getComissoes() != null ? receita.getComissoes() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Calcula os Impostos aplicando uma taxa fixa de 15.5% sobre o EBITDA.
+     * Calcula os Impostos aplicando a taxa de imposto sobre o EBITDA.
      * @param ebitda EBITDA
      * @param taxaImposto Taxa de Imposto
      * @return Impostos

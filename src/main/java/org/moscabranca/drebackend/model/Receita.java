@@ -14,6 +14,8 @@ public class Receita {
 
     private String modeloReceita;              // Ex.: SaaS, Consultoria
     private String tipoReceita;                // Ex.: Inbound, Outbound
+    private String descricao;           // Descrição da receita
+
     private BigDecimal ticketMedio;            // Valor médio por cliente
     private BigDecimal cac;                    // Custo de Aquisição de Cliente
     private BigDecimal investimentoMkt;        // Investimento em Marketing

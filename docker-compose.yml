@@ -11,10 +11,13 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./mysql:/var/lib/mysql
+      - dredatabase_data:/var/lib/mysql
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       retries: 5
       start_period: 30s
       timeout: 5s
+
+volumes:
+  dredatabase_data:
