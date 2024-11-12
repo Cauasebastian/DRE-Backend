@@ -131,5 +131,6 @@ public class DreService {
                 .filter(despesa -> despesa.getCmv() == null && despesa.getComissoes() == null)
                 .map(despesa -> despesa.getValor() != null ? despesa.getValor() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
     }
 }
