@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.Comparator;
 
 @Service
 public class ValuationService {
@@ -28,24 +29,41 @@ public class ValuationService {
         Dre dre = dreService.calcularDre(request);
         BigDecimal fluxoCaixaPresente = BigDecimal.ZERO;
         BigDecimal taxaDesconto = request.getTaxaDesconto();
+        BigDecimal taxaCrescimento = BigDecimal.valueOf(0.05); // Pode ser parametrizado
 
-        // Ordena a lista de DREs anuais por ano, caso não esteja ordenada
-        dre.getDreAnualList().sort((a, b) -> Integer.compare(a.getAno(), b.getAno()));
+        // Ordena a lista de DREs anuais por ano
+        dre.getDreAnualList().sort(Comparator.comparingInt(DreAnual::getAno));
 
-        int anoInicial = dre.getDreAnualList().get(0).getAno();
+        int anosProjecao = request.getAnosProjecao();
+        int anosDisponiveis = dre.getDreAnualList().size();
 
-        // Calcula o fluxo de caixa presente para cada ano
-        for (DreAnual dreAnual : dre.getDreAnualList()) {
-            int ano = dreAnual.getAno();
-            int periodo = ano - anoInicial + 1; // Ajusta o período para começar em 1
-            BigDecimal fluxoAno = calcularFluxoCaixaAno(dreAnual);
+        // Fluxo de caixa do último ano disponível
+        DreAnual ultimoAnoDisponivel = dre.getDreAnualList().get(anosDisponiveis - 1);
+        BigDecimal fluxoCaixaBase = calcularFluxoCaixaAno(ultimoAnoDisponivel);
+
+        for (int i = 1; i <= anosProjecao; i++) {
+            BigDecimal fluxoAno;
+            int periodo = i;
+
+            if (i <= anosDisponiveis) {
+                // Usar dados reais
+                DreAnual dreAnual = dre.getDreAnualList().get(i - 1);
+                fluxoAno = calcularFluxoCaixaAno(dreAnual);
+            } else {
+                // Projetar fluxo de caixa
+                int anosDesdeUltimoAno = i - anosDisponiveis;
+                fluxoAno = fluxoCaixaBase.multiply(
+                        BigDecimal.ONE.add(taxaCrescimento).pow(anosDesdeUltimoAno, new MathContext(10, RoundingMode.HALF_UP)));
+            }
+
             BigDecimal valorPresente = fluxoAno.divide(
                     BigDecimal.ONE.add(taxaDesconto).pow(periodo), 2, RoundingMode.HALF_UP);
             fluxoCaixaPresente = fluxoCaixaPresente.add(valorPresente);
         }
 
         // Calcula o valor terminal
-        BigDecimal valorTerminalDescontado = calcularValorTerminal(dre, taxaDesconto);
+        BigDecimal taxaCrescimentoPerpetuo = BigDecimal.valueOf(0.03); // Pode ser parametrizado
+        BigDecimal valorTerminalDescontado = calcularValorTerminal(fluxoCaixaBase, taxaDesconto, taxaCrescimentoPerpetuo, anosProjecao, anosDisponiveis);
         BigDecimal valuationTotal = fluxoCaixaPresente.add(valorTerminalDescontado);
 
         return new ValuationResponse(fluxoCaixaPresente, valorTerminalDescontado, valuationTotal);
@@ -66,22 +84,24 @@ public class ValuationService {
     /**
      * Calcula o valor terminal do valuation.
      *
-     * @param dre          Objeto Dre contendo a lista de DREs anuais.
-     * @param taxaDesconto Taxa de desconto para o valuation.
+     * @param fluxoCaixaBase           Fluxo de caixa base do último ano disponível.
+     * @param taxaDesconto             Taxa de desconto para o valuation.
+     * @param taxaCrescimentoPerpetuo  Taxa de crescimento perpétuo.
+     * @param anosProjecao             Número total de anos de projeção.
      * @return Valor terminal descontado.
      */
-    private BigDecimal calcularValorTerminal(Dre dre, BigDecimal taxaDesconto) {
-        // Calcula o valor terminal com base nos dados do último ano
-        DreAnual ultimoAno = dre.getDreAnualList().get(dre.getDreAnualList().size() - 1);
-        BigDecimal fluxoUltimoAno = calcularFluxoCaixaAno(ultimoAno);
-        BigDecimal taxaCrescimentoPerpetuo = BigDecimal.valueOf(0.03); // Exemplo de taxa de crescimento perpétuo
+    private BigDecimal calcularValorTerminal(BigDecimal fluxoCaixaBase, BigDecimal taxaDesconto,
+                                             BigDecimal taxaCrescimentoPerpetuo, int anosProjecao, int anosDisponiveis) {
+        // Fluxo de caixa no último ano projetado
+        BigDecimal fluxoAnoTerminal = fluxoCaixaBase.multiply(
+                BigDecimal.ONE.add(taxaCrescimentoPerpetuo).pow(1, new MathContext(10, RoundingMode.HALF_UP)));
 
-        BigDecimal valorTerminalNaoDescontado = fluxoUltimoAno.multiply(BigDecimal.ONE.add(taxaCrescimentoPerpetuo))
+        // Valor Terminal não descontado
+        BigDecimal valorTerminalNaoDescontado = fluxoAnoTerminal.multiply(BigDecimal.ONE.add(taxaCrescimentoPerpetuo))
                 .divide(taxaDesconto.subtract(taxaCrescimentoPerpetuo), RoundingMode.HALF_UP);
 
-        // Desconta o valor terminal para o valor presente
-        int n = dre.getDreAnualList().size();
-        BigDecimal fatorDesconto = BigDecimal.ONE.add(taxaDesconto).pow(n, new MathContext(10, RoundingMode.HALF_UP));
+        // Descontar o valor terminal para o valor presente
+        BigDecimal fatorDesconto = BigDecimal.ONE.add(taxaDesconto).pow(anosProjecao, new MathContext(10, RoundingMode.HALF_UP));
         BigDecimal valorTerminalDescontado = valorTerminalNaoDescontado.divide(fatorDesconto, 2, RoundingMode.HALF_UP);
 
         return valorTerminalDescontado;
