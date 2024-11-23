@@ -18,8 +18,11 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expirationMs}")
-    private int jwtExpirationInMs;
+    @Value("${jwt.accessExpirationMs}")
+    private int accessExpirationMs;
+
+    @Value("${jwt.refreshExpirationMs}")
+    private int refreshExpirationMs;
 
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
@@ -27,8 +30,16 @@ public class JwtUtil {
     }
 
     public String generateToken(String email) {
+        return generateToken(email, accessExpirationMs);
+    }
+
+    public String generateRefreshToken(String email) {
+        return generateToken(email, refreshExpirationMs);
+    }
+
+    private String generateToken(String email, int expirationMs) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
+        Date expiryDate = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
                 .setSubject(email)
@@ -48,15 +59,14 @@ public class JwtUtil {
         return claims.getSubject();
     }
 
-    public boolean validateToken(String authToken) {
+    public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
-                    .parseClaimsJws(authToken);
+                    .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            // Log the exception if needed
             return false;
         }
     }

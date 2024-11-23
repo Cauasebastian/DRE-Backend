@@ -9,10 +9,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -37,11 +34,27 @@ public class AuthController {
                             loginRequest.getSenha()
                     )
             );
-            String token = jwtUtil.generateToken(loginRequest.getEmail());
-            return ResponseEntity.ok(new AuthResponse(token));
+
+            String accessToken = jwtUtil.generateToken(loginRequest.getEmail());
+            String refreshToken = jwtUtil.generateRefreshToken(loginRequest.getEmail());
+
+            return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken));
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Falha na autenticação: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody RefreshRequest refreshRequest) {
+        String refreshToken = refreshRequest.getRefreshToken();
+
+        if (jwtUtil.validateToken(refreshToken)) {
+            String email = jwtUtil.getUsernameFromJWT(refreshToken);
+            String newAccessToken = jwtUtil.generateToken(email);
+            return ResponseEntity.ok(new AuthResponse(newAccessToken, refreshToken));
+        }
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token inválido.");
     }
 
     @PostMapping("/register")
@@ -58,18 +71,29 @@ public class AuthController {
         private String email;
         private String senha;
 
-        // Getters e Setters
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
         public String getSenha() { return senha; }
         public void setSenha(String senha) { this.senha = senha; }
     }
 
+    static class RefreshRequest {
+        private String refreshToken;
+
+        public String getRefreshToken() { return refreshToken; }
+        public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
+    }
+
     static class AuthResponse {
-        private String token;
+        private String accessToken;
+        private String refreshToken;
 
-        public AuthResponse(String token) { this.token = token; }
+        public AuthResponse(String accessToken, String refreshToken) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+        }
 
-        public String getToken() { return token; }
+        public String getAccessToken() { return accessToken; }
+        public String getRefreshToken() { return refreshToken; }
     }
 }
