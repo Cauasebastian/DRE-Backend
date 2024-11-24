@@ -20,9 +20,10 @@ public class DreController {
     private ValuationService valuationService;
 
     /**
-     * Endpoint para calcular a DRE com base nos dados fornecidos
-     * @param request Dados de entrada para o cálculo da DRE
-     * @return DRE calculada
+     * Endpoint para calcular a DRE com base nos dados fornecidos.
+     *
+     * @param request Dados de entrada para o cálculo da DRE.
+     * @return DRE calculada.
      */
     @PostMapping("/calcular")
     public ResponseEntity<Dre> calcularDre(@RequestBody DreRequest request) {
@@ -31,9 +32,10 @@ public class DreController {
     }
 
     /**
-     * Endpoint para calcular o valuation com base nos dados fornecidos
-     * @param request Dados de entrada para o cálculo do valuation
-     * @return Valuation calculado
+     * Endpoint para calcular o valuation com base nos dados fornecidos.
+     *
+     * @param request Dados de entrada para o cálculo do valuation.
+     * @return Valuation calculado.
      */
     @PostMapping("/valuation")
     public ResponseEntity<ValuationResponse> calcularValuation(@RequestBody DreRequest request) {
