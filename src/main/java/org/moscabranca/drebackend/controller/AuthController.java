@@ -96,4 +96,8 @@ public class AuthController {
         public String getAccessToken() { return accessToken; }
         public String getRefreshToken() { return refreshToken; }
     }
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Servidor está em execução");
+    }
 }

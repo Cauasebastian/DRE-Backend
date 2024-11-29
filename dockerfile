@@ -12,8 +12,8 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
 # Define PostgreSQL-related environment variables
-ENV SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/produto_db
-ENV SPRING_DATASOURCE_USERNAME=postgres
+ENV SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/dredatabase
+ENV SPRING_DATASOURCE_USERNAME=root
 ENV SPRING_DATASOURCE_PASSWORD=password
 ENV SPRING_PROFILES_ACTIVE=dev
 ENV CORS_ALLOWED_ORIGINS=http://localhost:3000
